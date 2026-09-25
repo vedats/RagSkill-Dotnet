@@ -1,0 +1,22 @@
+{
+  "name": "dotnet-rag-chat",
+  "description": "Scaffold a working 'chat with your documents' RAG app in .NET 10 Blazor Server (Ollama chat + local embeddings, SQLite vector store, Microsoft.Extensions.AI), or add it to an existing ASP.NET Core/Blazor project.",
+  "version": "1.0.0",
+  "author": {
+    "name": "vedats",
+    "url": "https://github.com/vedats"
+  },
+  "homepage": "https://github.com/vedats/RagSkill-Dotnet",
+  "repository": "https://github.com/vedats/RagSkill-Dotnet",
+  "license": "MIT",
+  "keywords": [
+    "dotnet",
+    "blazor",
+    "rag",
+    "ollama",
+    "semantic-search",
+    "chatbot",
+    "sqlite-vec",
+    "microsoft-extensions-ai"
+  ]
+}

@@ -1,0 +1,288 @@
+﻿@page "/"
+@using System.ComponentModel
+@inject IChatClient ChatClient
+@inject NavigationManager Nav
+@inject SemanticSearch Search
+@inject ILogger<Chat> Logger
+@inject ChatHistoryStore History
+@inject IJSRuntime JS
+@inject IConfiguration Configuration
+@implements IDisposable
+
+<PageTitle>Chat</PageTitle>
+
+<ChatHeader OnNewChat="@ResetConversationAsync" />
+
+<ChatMessageList Messages="@messages" InProgressMessage="@currentResponseMessage">
+    <NoMessagesContent>
+        @if (documents.Count == 0)
+        {
+            <div>No documents yet. <a href="documents" class="documents-link">Upload some documents</a> to start asking questions.</div>
+        }
+        else
+        {
+            <div>Ask a question about your @(documents.Count == 1 ? "document" : $"{documents.Count} documents"):</div>
+            <div class="document-list">
+                @foreach (var document in documents)
+                {
+                    <ChatCitation File="@document.Name" />
+                }
+            </div>
+            <a href="documents" class="documents-link">Upload more documents</a>
+        }
+    </NoMessagesContent>
+</ChatMessageList>
+
+<div class="chat-container">
+    @if (errorMessage is not null)
+    {
+        <div class="chat-error page-width" role="alert">@errorMessage</div>
+    }
+    <ChatSuggestions OnSelected="@AddUserMessageAsync" @ref="@chatSuggestions" />
+    <ChatInput OnSend="@AddUserMessageAsync" @ref="@chatInput" />
+</div>
+
+@code {
+    private const string SystemPrompt = @"
+        You are an assistant who answers questions about information you retrieve.
+        Do not answer questions about anything else.
+        Use only simple markdown to format your responses.
+
+        Use the Search tool to find relevant information. When you do this, end your
+        reply with citations in the special XML format:
+
+        <citation filename='string'>exact quote here</citation>
+
+        Always include the citation in your response if there are results.
+
+        The quote must be max 5 words, taken word-for-word from the search result, and is the basis for why the citation is relevant.
+        Don't refer to the presence of citations; just emit these tags right at the end, with no surrounding text.
+        ";
+
+    private int statefulMessageCount;
+    private readonly ChatOptions chatOptions = new();
+    private readonly List<ChatMessage> messages = new();
+    private CancellationTokenSource? currentResponseCancellation;
+    private ChatMessage? currentResponseMessage;
+    private ChatInput? chatInput;
+    private ChatSuggestions? chatSuggestions;
+    private IReadOnlyList<FileInfo> documents = [];
+    private string? errorMessage;
+    private Guid conversationId = Guid.NewGuid();
+    private int maxHistoryMessages;
+    private Task? historyLoad;
+
+    // The browser remembers which conversation it's on, so the chat can be restored after navigating away or reloading
+    private const string ConversationIdKey = "chat-conversation-id";
+
+    protected override void OnInitialized()
+    {
+        // How many recent user/assistant messages are sent to the model (the full chat is still shown and saved)
+        maxHistoryMessages = Math.Max(1, Configuration.GetValue("Chat:MaxHistoryMessages", 10));
+        documents = Search.GetDocuments();
+        statefulMessageCount = 0;
+        messages.Add(new(ChatRole.System, SystemPrompt));
+        chatOptions.Tools = [
+            AIFunctionFactory.Create(SearchAsync)
+        ];
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            historyLoad = LoadHistoryAsync();
+            await historyLoad;
+        }
+    }
+
+    private async Task LoadHistoryAsync()
+    {
+        try
+        {
+            if (Guid.TryParse(await JS.InvokeAsync<string?>("localStorage.getItem", ConversationIdKey), out var savedId))
+            {
+                conversationId = savedId;
+                var saved = await History.LoadAsync(conversationId);
+                if (saved.Count > 0)
+                {
+                    messages.AddRange(saved);
+                    StateHasChanged();
+                }
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("localStorage.setItem", ConversationIdKey, conversationId.ToString());
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (Exception ex)
+        {
+            // Losing the history shouldn't stop the chat from working
+            Logger.LogError(ex, "Failed to restore the conversation.");
+        }
+    }
+
+    private async Task SaveHistoryAsync()
+    {
+        try
+        {
+            await History.SaveAsync(conversationId, messages);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to save the conversation.");
+        }
+    }
+
+    private async Task AddUserMessageAsync(ChatMessage userMessage)
+    {
+        // Make sure a restored conversation is in place before adding to it
+        if (historyLoad is not null)
+        {
+            await historyLoad;
+        }
+
+        CancelAnyCurrentResponse();
+
+        // Add the user message to the conversation
+        errorMessage = null;
+        messages.Add(userMessage);
+        chatSuggestions?.Clear();
+        await chatInput!.FocusAsync();
+
+        // Stream and display a new response from the IChatClient
+        var responseText = new TextContent("");
+        currentResponseMessage = new ChatMessage(ChatRole.Assistant, [responseText]);
+        var responseMessage = currentResponseMessage;
+        var cancellation = currentResponseCancellation = new();
+        try
+        {
+            await foreach (var update in ChatClient.GetStreamingResponseAsync(GetMessagesForModel(), chatOptions, cancellation.Token))
+            {
+                messages.AddMessages(update, filter: c => c is not TextContent);
+                responseText.Text += update.Text;
+                chatOptions.ConversationId = update.ConversationId;
+                ChatMessageItem.NotifyChanged(responseMessage);
+            }
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            // Superseded by a newer message or a new chat; CancelAnyCurrentResponse already kept any partial response
+            return;
+        }
+        catch (Exception ex)
+        {
+            // Show the failure instead of letting it tear down the whole circuit
+            Logger.LogError(ex, "Failed to get a chat response.");
+            errorMessage = GetErrorMessage(ex);
+            if (currentResponseMessage == responseMessage)
+            {
+                if (responseText.Text.Length > 0)
+                {
+                    messages.Add(responseMessage);
+                }
+                currentResponseMessage = null;
+            }
+            await SaveHistoryAsync();
+            return;
+        }
+
+        // Store the final response in the conversation, and begin getting suggestions
+        messages.Add(currentResponseMessage!);
+        statefulMessageCount = chatOptions.ConversationId is not null ? messages.Count : 0;
+        currentResponseMessage = null;
+        chatSuggestions?.Update(messages);
+        await SaveHistoryAsync();
+    }
+
+    private void CancelAnyCurrentResponse()
+    {
+        // If a response was cancelled while streaming, include it in the conversation so it's not lost
+        if (currentResponseMessage is not null)
+        {
+            messages.Add(currentResponseMessage);
+        }
+
+        currentResponseCancellation?.Cancel();
+        currentResponseMessage = null;
+    }
+
+    private async Task ResetConversationAsync()
+    {
+        CancelAnyCurrentResponse();
+        messages.Clear();
+        messages.Add(new(ChatRole.System, SystemPrompt));
+        chatOptions.ConversationId = null;
+        statefulMessageCount = 0;
+        errorMessage = null;
+        documents = Search.GetDocuments();
+
+        // Start a fresh conversation and forget the old one
+        History.Delete(conversationId);
+        conversationId = Guid.NewGuid();
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", ConversationIdKey, conversationId.ToString());
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        chatSuggestions?.Clear();
+        await chatInput!.FocusAsync();
+    }
+
+    [Description("Searches the documents for information using a phrase or keyword.")]
+    private async Task<IEnumerable<string>> SearchAsync(
+        [Description("The phrase to search for.")] string searchPhrase,
+        [Description("If possible, specify the filename to search that file only. If not provided or empty, the search includes all files.")] string filenameFilter = "")
+    {
+        await InvokeAsync(StateHasChanged);
+        var results = await Search.SearchAsync(searchPhrase, filenameFilter, maxResults: 5);
+        return results.Select(result =>
+            $"<result filename=\"{result.DocumentId}\">{result.Text}</result>");
+    }
+
+    private IEnumerable<ChatMessage> GetMessagesForModel()
+    {
+        // A service that keeps the conversation itself only needs what's new
+        if (statefulMessageCount > 0)
+        {
+            return messages.Skip(statefulMessageCount);
+        }
+
+        // Otherwise send the system prompt plus the last N user/assistant messages. The window only ever starts at a
+        // user message, so a tool call is never separated from its result (the model rejects orphaned tool results).
+        var start = messages.Count;
+        var counted = 0;
+        for (var i = messages.Count - 1; i >= 0 && messages[i].Role != ChatRole.System; i--)
+        {
+            var message = messages[i];
+            if (message.Role == ChatRole.User || (message.Role == ChatRole.Assistant && !string.IsNullOrEmpty(message.Text)))
+            {
+                if (++counted > maxHistoryMessages)
+                {
+                    break;
+                }
+            }
+            if (message.Role == ChatRole.User)
+            {
+                start = i;
+            }
+        }
+
+        return messages.Where(m => m.Role == ChatRole.System).Concat(messages.Skip(start)).ToList();
+    }
+
+    private static string GetErrorMessage(Exception ex) => ex switch
+    {
+        HttpRequestException { HttpRequestError: HttpRequestError.ConnectionError } =>
+            "Couldn't reach Ollama at localhost:11434. Make sure the Ollama app is running, then try again.",
+        _ => "Something went wrong while getting a response: " + ex.Message,
+    };
+
+    public void Dispose()
+        => currentResponseCancellation?.Cancel();
+}

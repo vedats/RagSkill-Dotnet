@@ -1,0 +1,18 @@
+{
+  "name": "dotnet-rag-chat",
+  "owner": {
+    "name": "vedats",
+    "url": "https://github.com/vedats"
+  },
+  "metadata": {
+    "description": "Claude Code skill for building RAG (chat with your documents) apps in .NET / Blazor with Ollama."
+  },
+  "plugins": [
+    {
+      "name": "dotnet-rag-chat",
+      "source": "./",
+      "description": "Scaffold a working 'chat with your documents' RAG app in .NET 10 Blazor Server (Ollama chat + local embeddings, SQLite vector store, Microsoft.Extensions.AI), or add it to an existing ASP.NET Core/Blazor project.",
+      "version": "1.0.0"
+    }
+  ]
+}

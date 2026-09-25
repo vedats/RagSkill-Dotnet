@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+bin/
+obj/
+.vs/
+.vscode/
+*.user
+# skill-creator eval workspaces and local test output
+*-workspace/
+*.db

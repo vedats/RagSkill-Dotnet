@@ -1,0 +1,253 @@
+@page "/documents"
+@using RagChatTemplate.Components.Pages.Chat
+@inject SemanticSearch Search
+@inject ILogger<Documents> Logger
+
+<PageTitle>Documents</PageTitle>
+
+<div class="documents-header main-background-gradient">
+    <div class="header-controls page-width">
+        <a href="/" class="btn-default">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="header-icon">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+            </svg>
+            Back to chat
+        </a>
+    </div>
+    <h1 class="page-width">Documents</h1>
+</div>
+
+<div class="documents-body page-width">
+    <section>
+        <h2>Upload</h2>
+        <p class="hint">PDF or Markdown files, up to @(MaxFileSize / 1024 / 1024) MB each. Uploading a file with an existing name replaces it.</p>
+
+        <label class="drop-zone @(isBusy ? "disabled" : "")">
+            <InputFile OnChange="@OnFilesSelectedAsync" multiple accept=".pdf,.md" disabled="@isBusy" />
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="drop-icon">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+            </svg>
+            <span>@(isBusy ? "Processing..." : "Click or drop files here")</span>
+        </label>
+
+        @if (uploads.Count > 0)
+        {
+            <ul class="upload-status">
+                @foreach (var upload in uploads)
+                {
+                    <li class="@upload.State.ToString().ToLowerInvariant()">
+                        <span class="file-name">@upload.FileName</span>
+                        <span class="state">@upload.Message</span>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+
+    <section>
+        <h2>Available documents (@documents.Count)</h2>
+        @if (documents.Count == 0)
+        {
+            <p class="hint">No documents yet.</p>
+        }
+        else
+        {
+            @if (deleteError is not null)
+            {
+                <p class="delete-error" role="alert">@deleteError</p>
+            }
+            <ul class="document-list">
+                @foreach (var document in documents)
+                {
+                    <li class="document-row">
+                        <ChatCitation File="@document.Name" />
+                        <span class="document-size">@FormatSize(document.Length)</span>
+                        <div class="document-actions">
+                            @if (pendingDelete == document.Name)
+                            {
+                                <span class="confirm-text">Delete permanently?</span>
+                                <button class="btn-danger" @onclick="@(() => DeleteAsync(document.Name))" disabled="@(deleting is not null)">
+                                    @(deleting == document.Name ? "Deleting..." : "Delete")
+                                </button>
+                                <button class="btn-subtle" @onclick="@(() => pendingDelete = null)" disabled="@(deleting is not null)">Cancel</button>
+                            }
+                            else
+                            {
+                                <button class="btn-subtle delete-button" title="Delete @document.Name"
+                                        @onclick="@(() => { pendingDelete = document.Name; deleteError = null; })" disabled="@(isBusy || deleting is not null)">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="action-icon">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                    </svg>
+                                    Delete
+                                </button>
+                            }
+                        </div>
+                    </li>
+                }
+            </ul>
+        }
+    </section>
+</div>
+
+@code {
+    private const long MaxFileSize = 20 * 1024 * 1024;
+    private const int MaxFileCount = 10;
+    private readonly List<UploadItem> uploads = new();
+    private IReadOnlyList<FileInfo> documents = [];
+    private bool isBusy;
+    private string? pendingDelete;
+    private string? deleting;
+    private string? deleteError;
+
+    protected override void OnInitialized() => RefreshDocuments();
+
+    private async Task OnFilesSelectedAsync(InputFileChangeEventArgs e)
+    {
+        if (isBusy)
+        {
+            return;
+        }
+
+        isBusy = true;
+        uploads.Clear();
+
+        try
+        {
+            if (e.FileCount > MaxFileCount)
+            {
+                uploads.Add(new(e.FileCount + " files", UploadState.Failed, $"Select at most {MaxFileCount} files at a time."));
+                return;
+            }
+
+            // Save each file to the data directory
+            var saved = new List<(UploadItem Item, FileInfo File)>();
+            foreach (var browserFile in e.GetMultipleFiles(MaxFileCount))
+            {
+                var fileName = Path.GetFileName(browserFile.Name);
+                var item = new UploadItem(fileName, UploadState.Uploading, "Uploading...");
+                uploads.Add(item);
+                StateHasChanged();
+
+                if (!SemanticSearch.SupportedExtensions.Contains(Path.GetExtension(fileName).ToLowerInvariant()))
+                {
+                    item.Fail("Only .pdf and .md files are supported.");
+                    continue;
+                }
+
+                if (browserFile.Size > MaxFileSize)
+                {
+                    item.Fail($"File is larger than {MaxFileSize / 1024 / 1024} MB.");
+                    continue;
+                }
+
+                try
+                {
+                    saved.Add((item, await SaveFileAsync(browserFile, fileName)));
+                    item.Set(UploadState.Indexing, "Indexing...");
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Failed to save uploaded file '{FileName}'.", fileName);
+                    item.Fail("Upload failed: " + ex.Message);
+                }
+                StateHasChanged();
+            }
+
+            RefreshDocuments();
+
+            if (saved.Count == 0)
+            {
+                return;
+            }
+
+            // Index the saved files so they're searchable from the chat
+            try
+            {
+                var results = await Search.IngestFilesAsync(saved.Select(s => s.File));
+                foreach (var (item, file) in saved)
+                {
+                    var result = results.FirstOrDefault(r => string.Equals(r.DocumentId, file.Name, StringComparison.OrdinalIgnoreCase));
+                    if (result is { Succeeded: true })
+                    {
+                        item.Set(UploadState.Done, "Ready");
+                    }
+                    else
+                    {
+                        item.Fail("Indexing failed" + (result?.Exception is { } ex ? ": " + ex.Message : "."));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Failed to index uploaded files.");
+                foreach (var (item, _) in saved)
+                {
+                    item.Fail("Indexing failed: " + ex.Message);
+                }
+            }
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+
+    private async Task<FileInfo> SaveFileAsync(Microsoft.AspNetCore.Components.Forms.IBrowserFile browserFile, string fileName)
+    {
+        var targetPath = Path.Combine(Search.IngestionDirectory.FullName, fileName);
+
+        // Write to a temp file outside the data directory so ingestion never sees a partial upload
+        var tempPath = Path.GetTempFileName();
+        await using (var source = browserFile.OpenReadStream(MaxFileSize))
+        await using (var target = File.Create(tempPath))
+        {
+            await source.CopyToAsync(target);
+        }
+        File.Move(tempPath, targetPath, overwrite: true);
+
+        return new FileInfo(targetPath);
+    }
+
+    private async Task DeleteAsync(string fileName)
+    {
+        deleting = fileName;
+        deleteError = null;
+        try
+        {
+            await Search.DeleteDocumentAsync(fileName);
+            uploads.RemoveAll(u => string.Equals(u.FileName, fileName, StringComparison.OrdinalIgnoreCase));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to delete document '{FileName}'.", fileName);
+            deleteError = $"Couldn't delete {fileName}: {ex.Message}";
+        }
+        finally
+        {
+            deleting = null;
+            pendingDelete = null;
+            RefreshDocuments();
+        }
+    }
+
+    private static string FormatSize(long bytes) => bytes switch
+    {
+        < 1024 => $"{bytes} B",
+        < 1024 * 1024 => $"{bytes / 1024.0:0.#} KB",
+        _ => $"{bytes / 1024.0 / 1024.0:0.#} MB",
+    };
+
+    private void RefreshDocuments() => documents = Search.GetDocuments();
+
+    private enum UploadState { Uploading, Indexing, Done, Failed }
+
+    private sealed class UploadItem(string fileName, UploadState state, string message)
+    {
+        public string FileName { get; } = fileName;
+        public UploadState State { get; private set; } = state;
+        public string Message { get; private set; } = message;
+
+        public void Set(UploadState state, string message) => (State, Message) = (state, message);
+        public void Fail(string message) => Set(UploadState.Failed, message);
+    }
+}

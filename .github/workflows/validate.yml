@@ -1,0 +1,36 @@
+name: validate
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Scaffold a new app and build it
+        run: |
+          python skills/dotnet-rag-chat/scripts/scaffold.py CiDocsChat --output "$RUNNER_TEMP/CiDocsChat"
+          ! grep -rn "RagChatTemplate" "$RUNNER_TEMP/CiDocsChat" --include=*.cs --include=*.razor --include=*.csproj
+          dotnet build "$RUNNER_TEMP/CiDocsChat/CiDocsChat.csproj"
+
+      - name: Scaffold refuses to overwrite
+        run: |
+          ! python skills/dotnet-rag-chat/scripts/scaffold.py CiDocsChat --output "$RUNNER_TEMP/CiDocsChat"
+
+      - name: Integrate into a fresh Blazor app and build it
+        run: |
+          dotnet new blazor -n CiShop -o "$RUNNER_TEMP/CiShop" --interactivity Server
+          python skills/dotnet-rag-chat/scripts/integrate.py "$RUNNER_TEMP/CiShop"
+          grep -q '@page "/chat"' "$RUNNER_TEMP/CiShop/Components/Pages/Chat/Chat.razor"
+          dotnet build "$RUNNER_TEMP/CiShop/CiShop.csproj"

@@ -1,0 +1,9 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+# Runtime state (lives in the output folder, but just in case)
+vector-store.db
+vector-store.manifest.json
+conversations/

@@ -1,0 +1,194 @@
+.documents-header {
+    padding: 1.5rem;
+}
+
+.header-controls {
+    margin-bottom: 1.5rem;
+}
+
+    .header-controls .btn-default {
+        width: fit-content;
+    }
+
+.header-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    color: rgb(55, 65, 81);
+}
+
+.documents-body {
+    width: 100%;
+    padding: 0 1.5rem 2rem;
+}
+
+section {
+    margin-bottom: 2rem;
+}
+
+h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.hint {
+    color: #6B7280;
+    font-size: 0.875rem;
+    margin-bottom: 0.75rem;
+}
+
+.drop-zone {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 2rem;
+    background: white;
+    border: 2px dashed #9CA3AF;
+    border-radius: 8px;
+    color: #4B5563;
+    cursor: pointer;
+}
+
+    .drop-zone:hover, .drop-zone:focus-within {
+        border-color: #4152d5;
+        background-color: #F5F7FF;
+    }
+
+    .drop-zone.disabled {
+        cursor: progress;
+        opacity: 0.6;
+    }
+
+    /* Stretch the native file input over the zone so clicks and drag-and-drop both land on it */
+    .drop-zone ::deep input[type=file] {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        cursor: inherit;
+    }
+
+.drop-icon {
+    width: 2rem;
+    height: 2rem;
+}
+
+.upload-status {
+    margin-top: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+    .upload-status li {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.5rem 0.75rem;
+        background: white;
+        border: 1px solid rgb(229, 231, 235);
+        border-left-width: 4px;
+        border-radius: 4px;
+        font-size: 0.875rem;
+    }
+
+    .upload-status .file-name {
+        font-weight: 600;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .upload-status .uploading, .upload-status .indexing {
+        border-left-color: #F59E0B;
+    }
+
+    .upload-status .done {
+        border-left-color: #26b050;
+    }
+
+    .upload-status .failed {
+        border-left-color: #e50000;
+        color: #b00000;
+    }
+
+.document-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.document-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0 0.75rem 0 0;
+    background: white;
+    border: 1px solid rgb(229, 231, 235);
+    border-radius: 6px;
+}
+
+    /* The citation card supplies its own spacing for chat; flatten it inside a row */
+    .document-row ::deep .citation {
+        margin: 0;
+        flex: 1 1 auto;
+        min-width: 0;
+        border-bottom: none;
+    }
+
+.document-size {
+    color: #6B7280;
+    font-size: 0.875rem;
+    white-space: nowrap;
+}
+
+.document-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    white-space: nowrap;
+}
+
+.confirm-text {
+    color: #b00000;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.action-icon {
+    width: 1rem;
+    height: 1rem;
+}
+
+.delete-button:hover:not(:disabled) {
+    border-color: #f5a3a3;
+    background-color: #fff0f0;
+    color: #b00000;
+}
+
+.btn-danger {
+    padding: 0.25rem 0.75rem;
+    border-radius: 0.25rem;
+    border: 1px solid #c50000;
+    background-color: #e50000;
+    color: white;
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    font-weight: 600;
+}
+
+    .btn-danger:hover:not(:disabled) {
+        background-color: #c50000;
+    }
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.delete-error {
+    margin-bottom: 0.75rem;
+    color: #b00000;
+    font-size: 0.875rem;
+}
