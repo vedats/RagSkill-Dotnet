@@ -2,6 +2,8 @@
 
 **[English](README.md)**
 
+![RagSkill-Dotnet](docs/linkedin-promo.png)
+
 .NET 10 Blazor Server ile **çalışan bir RAG (erişimle güçlendirilmiş üretim) sohbet uygulaması** kuran ya da
 bunu mevcut ASP.NET Core / Blazor projene ekleyen bir [Claude Code](https://claude.com/claude-code) skill'i.
 Kullanıcılar PDF/Markdown dosyaları yükleyip soru sorar; cevaplar tıklanabilir kaynak gösterimiyle gelir.
@@ -38,6 +40,12 @@ Gerekenler: skill için Claude Code ve Python; oluşturduğu uygulama için .NET
 - 🧠 **Hafıza** — sohbet tarayıcı başına kaydedilir; sayfa değişince, yenilenince veya uygulama yeniden başlayınca geri gelir; modele yalnızca son N mesaj gider
 - 🛡️ **Dayanıklı** — kararsız embedding çağrıları tekrar denenir, Ollama kapalıysa çökme yerine uyarı gösterilir, Ollama açılınca başarısız belgeler otomatik indekslenir
 - 🔌 **Yerel öncelikli** — embedding yerelde (`all-minilm`); sohbet Ollama üzerinden bulut (`gpt-oss:120b-cloud`) veya yerel modelle
+
+## Ekran görüntüleri
+
+| Kaynaklı cevaplar | Belgeler sayfası |
+|---|---|
+| ![Kaynak gösteren iki cevap](docs/chat-answer.png) | ![Yükleme alanı ve silme butonları olan belgeler sayfası](docs/documents-page.png) |
 
 ## Gereksinimler
 

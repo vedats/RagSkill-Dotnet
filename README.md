@@ -5,6 +5,8 @@
 
 **[Türkçe](README.tr.md)**
 
+![RagSkill-Dotnet: build a chat-with-your-documents app in .NET from a single sentence](docs/linkedin-promo.png)
+
 The `dotnet-rag-chat` [Claude Code](https://claude.com/claude-code) skill builds a **working RAG (retrieval-augmented generation)
 chat app** in .NET 10 Blazor Server — or adds one to your existing ASP.NET Core / Blazor project. Users upload
 PDF/Markdown files and ask questions; answers come with clickable source citations.
@@ -48,6 +50,18 @@ builds (see [Requirements](#requirements)).
 - 🧠 **Memory** — conversation saved per browser and restored after navigation, reload or restart; only the last N messages are sent to the model
 - 🛡️ **Robust** — retries for flaky embedding calls, a clear banner instead of a crash when Ollama is down, failed documents re-indexed automatically once Ollama is back
 - 🔌 **Local-first** — embeddings run locally (`all-minilm`); chat via Ollama, cloud (`gpt-oss:120b-cloud`) or local models
+
+## Screenshots
+
+| Chat with citations | Documents page |
+|---|---|
+| ![Two questions answered with citations to the source document](docs/chat-answer.png) | ![Documents page with upload area and delete buttons](docs/documents-page.png) |
+
+<details>
+<summary>Start screen</summary>
+
+![Start screen listing the available documents](docs/start-screen.png)
+</details>
 
 ## Stack
 
