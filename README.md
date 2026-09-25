@@ -18,6 +18,28 @@ Claude: (uses dotnet-rag-chat) scaffolds HrPolicyChat, pulls the embedding model
         asks a test question and checks the answer has a citation.
 ```
 
+## Who is this for?
+
+- **.NET developers** who want a "chat with your documents" app (internal knowledge base, product manuals,
+  policies, contracts…) built on Blazor, or want to add one to an existing ASP.NET Core / Blazor project.
+- **Teams that want data to stay local**: documents and embeddings never leave the machine; only the chat model
+  can be a cloud model, and you can choose a local one instead.
+- **Anyone debugging this stack** (Microsoft.Extensions.AI, DataIngestion, SqliteVec, OllamaSharp) — the pitfalls
+  list covers the errors you're likely to hit.
+
+**Not for you if** you work in Python or JavaScript (the skill only generates C#/Blazor and won't trigger for other
+stacks — look at LangChain/LlamaIndex-based skills instead), or you need a hosted multi-user product out of the box
+(see [AnythingLLM](https://github.com/Mintplex-Labs/anything-llm)).
+
+| Where it runs | Works? |
+|---|---|
+| Claude Code (terminal, desktop app, IDE extensions) on Windows, macOS or Linux | ✅ It runs Python, `dotnet` and Ollama on your machine |
+| claude.ai / Claude chat apps | ⚠️ Advice only — that sandbox can't run `dotnet` or reach your local Ollama |
+| Other agents that read `SKILL.md` | ❓ Untested |
+
+What you need: Claude Code and Python for the skill itself; the .NET 10 SDK and a running Ollama for the app it
+builds (see [Requirements](#requirements)).
+
 ## Features of the generated app
 
 - 📄 **Documents page** — upload (PDF, Markdown; size/count limits, per-file status) and delete with confirmation

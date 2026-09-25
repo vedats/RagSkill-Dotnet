@@ -9,6 +9,27 @@ Kullanıcılar PDF/Markdown dosyaları yükleyip soru sorar; cevaplar tıklanabi
 Yalnızca tavsiye veren RAG skill'lerinden farkı: **test edilmiş, çalışan bir şablon**, scriptler ve bu teknoloji
 yığınında gerçekten yaşanmış hataların çözümleriyle geliyor. Claude zaten çalışan koddan başlıyor.
 
+## Kimler için?
+
+- Blazor tabanlı bir "belgelerinle sohbet" uygulaması (iç bilgi bankası, ürün kılavuzları, yönetmelikler,
+  sözleşmeler…) isteyen ya da bunu mevcut bir ASP.NET Core / Blazor projesine eklemek isteyen **.NET geliştiricileri**.
+- **Verilerin yerelde kalmasını isteyen ekipler:** belgeler ve embedding'ler bilgisayardan çıkmaz; yalnızca sohbet
+  modeli bulutta olabilir, istersen onu da yerel bir modelle değiştirebilirsin.
+- **Bu teknoloji yığınında hata ayıklayanlar** (Microsoft.Extensions.AI, DataIngestion, SqliteVec, OllamaSharp):
+  hata listesi, karşılaşman muhtemel sorunları kapsıyor.
+
+**Sana göre değil, eğer** Python veya JavaScript kullanıyorsan (skill yalnızca C#/Blazor üretir ve diğer dillerde
+devreye girmez; LangChain/LlamaIndex tabanlı skill'lere bak) ya da kutudan çıktığı gibi çok kullanıcılı, barındırılan
+bir ürün istiyorsan ([AnythingLLM](https://github.com/Mintplex-Labs/anything-llm)'e bak).
+
+| Nerede çalışır | Durum |
+|---|---|
+| Claude Code (terminal, masaüstü uygulaması, IDE eklentileri) — Windows, macOS, Linux | ✅ Python, `dotnet` ve Ollama'yı senin bilgisayarında çalıştırır |
+| claude.ai / Claude sohbet uygulamaları | ⚠️ Yalnızca tavsiye — o ortam `dotnet` çalıştıramaz, yerel Ollama'ya ulaşamaz |
+| `SKILL.md` okuyan diğer ajanlar | ❓ Test edilmedi |
+
+Gerekenler: skill için Claude Code ve Python; oluşturduğu uygulama için .NET 10 SDK ve çalışan bir Ollama.
+
 ## Oluşturulan uygulamanın özellikleri
 
 - 📄 **Belgeler sayfası** — yükleme (PDF, Markdown; boyut/adet sınırı, dosya bazında durum) ve onaylı silme
